@@ -18,6 +18,7 @@
     TOC_CHECKBOX_ID: 'gemini-toc-checkbox',
     CHECKBOX_CLASS: 'gemini-export-checkbox',
     EXPORT_MODE_NAME: 'gemini-export-mode',
+    STATS_CHECKBOX_ID: 'gemini-stats-checkbox',
 
     SELECTORS: {
       CHAT_CONTAINER: '[data-test-id="chat-history-container"]',
@@ -831,6 +832,14 @@
           </label>
         </div>
 
+        <div style="margin-top:12px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="${CONFIG.STATS_CHECKBOX_ID}" checked 
+                   style="width:16px;height:16px;">
+            <span>📊 Include Statistics</span>
+          </label>
+        </div>
+
         <div id="gemini-filename-row" style="margin-top:12px;display:block;">
           <label for="${CONFIG.FILENAME_INPUT_ID}" style="font-weight:bold;">
             Filename <span style='color:#888;font-weight:normal;'>(optional)</span>:
@@ -993,7 +1002,7 @@
       return `gemini_chat_export_${Utils.getDateString()}`;
     }
 
-    async buildMarkdown(turns, conversationTitle, showProgress = true) {
+    async buildMarkdown(turns, conversationTitle, showProgress = true, includeStats = true) {
       const exportDate = new Date().toLocaleString();
       let markdown = conversationTitle
         ? `# ${conversationTitle}\n\n> 📅 Exported on: ${exportDate}\n\n---\n\n`
@@ -1090,19 +1099,19 @@
         progressToast.close();
       }
 
-      // İstatistik hesapla ve footer ekle
-      const contentStats = Utils.calculateStats(markdown);
-      markdown += `\n---\n\n`;
-      markdown += `## 📊 Export Statistics\n\n`;
-      markdown += `| Metric | Value |\n`;
-      markdown += `|--------|-------|\n`;
-      markdown += `| 📝 Total Words | ${contentStats.words.toLocaleString()} |\n`;
-      markdown += `| 🧑 User Messages | ${stats.userMessages} |\n`;
-      markdown += `| 🤖 AI Responses | ${stats.aiMessages} |\n`;
-      markdown += `| 💻 Code Blocks | ${contentStats.codeBlocks} |\n`;
-      markdown += `| 🔢 Math Expressions | ${contentStats.mathExpressions} |\n`;
-      markdown += `| 📄 Total Lines | ${contentStats.lines.toLocaleString()} |\n`;
-      markdown += `\n> *Exported with [AI Chat Exporter](https://github.com/user/ai-chat-exporter)*\n`;
+      if (includeStats) {
+        const contentStats = Utils.calculateStats(markdown);
+        markdown += `\n---\n\n`;
+        markdown += `## 📊 Export Statistics\n\n`;
+        markdown += `| Metric | Value |\n`;
+        markdown += `|--------|-------|\n`;
+        markdown += `| 📝 Total Words | ${contentStats.words.toLocaleString()} |\n`;
+        markdown += `| 🧑 User Messages | ${stats.userMessages} |\n`;
+        markdown += `| 🤖 AI Responses | ${stats.aiMessages} |\n`;
+        markdown += `| 💻 Code Blocks | ${contentStats.codeBlocks} |\n`;
+        markdown += `| 🔢 Math Expressions | ${contentStats.mathExpressions} |\n`;
+        markdown += `| 📄 Total Lines | ${contentStats.lines.toLocaleString()} |\n`;
+      }
 
       return { content: markdown, stats: stats, messages: messages };
     }
@@ -1288,7 +1297,7 @@
       }, 1000);
     }
 
-    async execute(exportMode, customFilename, format = 'md', includeTOC = true) {
+    async execute(exportMode, customFilename, format = 'md', includeTOC = true, includeStats = true) {
       // 1. Önce sayfayı aşağı kaydırıp her şeyi yükle
       await this.scrollToLoadAll();
 
@@ -1303,7 +1312,7 @@
 
       // 4. Mesajları topla ve markdown oluştur
       const turns = Array.from(document.querySelectorAll(CONFIG.SELECTORS.CONVERSATION_TURN));
-      const result = await this.buildMarkdown(turns, conversationTitle);
+      const result = await this.buildMarkdown(turns, conversationTitle, true, includeStats);
 
       // 5. TOC ekle (sadece md ve html için)
       let finalContent = result.content;
@@ -1457,11 +1466,12 @@
         // Format ve TOC seçeneklerini al
         const format = this.dropdown.querySelector(`#${CONFIG.FORMAT_DROPDOWN_ID}`)?.value || 'md';
         const includeTOC = this.dropdown.querySelector(`#${CONFIG.TOC_CHECKBOX_ID}`)?.checked ?? true;
+        const includeStats = this.dropdown.querySelector(`#${CONFIG.STATS_CHECKBOX_ID}`)?.checked ?? true;
 
         this.dropdown.style.display = 'none';
 
         // Execute işlemini çağır ve sonucu al
-        const stats = await this.exportService.execute(exportMode, customFilename, format, includeTOC);
+        const stats = await this.exportService.execute(exportMode, customFilename, format, includeTOC, includeStats);
 
         // Temizlik işlemleri
         this.checkboxManager.removeAll();
